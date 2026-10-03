@@ -1,0 +1,5 @@
+# Publish-only repo: track index.html + README + this file, nothing else.
+*
+!.gitignore
+!README.md
+!index.html

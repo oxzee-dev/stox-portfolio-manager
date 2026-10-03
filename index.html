@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STOX // MARKET TERMINAL</title>
+<style>
+:root{
+  --bg:#0a0c10; --bg2:#0d1015; --panel:rgba(255,255,255,.03); --panel2:rgba(255,255,255,.055);
+  --border:rgba(255,255,255,.10); --border-hi:rgba(255,255,255,.2);
+  --txt:#97a0aa; --dim:#6a7178; --hi:#c3cad2;
+  --amber:#e0a63c; --up:#5a9c7a; --down:#bd6a6a; --info:#7fb4c9;
+  --accent:var(--amber); --r:12px;
+  --mono:ui-monospace,SFMono-Regular,"JetBrains Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--txt);font:400 11px/1.55 var(--mono);
+  font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;min-height:100vh;
+}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(900px 500px at 85% -10%,color-mix(in srgb,var(--accent) 7%,transparent),transparent 60%),
+    repeating-linear-gradient(0deg,rgba(255,255,255,.014) 0 1px,transparent 1px 4px);}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:999;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.02) 0 1px,transparent 1px 3px)}
+a{color:inherit;text-decoration:none}
+b{font-weight:600}
+.up{color:var(--up)} .down{color:var(--down)} .flat{color:var(--dim)} .mixed{color:var(--amber)}
+
+.progress{position:fixed;top:0;left:0;right:0;height:2px;z-index:100;background:rgba(255,255,255,.05)}
+.progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--accent),var(--info));box-shadow:0 0 8px var(--accent)}
+
+.topbar{position:sticky;top:0;z-index:50;display:grid;grid-template-columns:auto 1fr auto;align-items:center;
+  gap:18px;padding:0 16px;height:44px;background:rgba(10,12,16,.86);backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border)}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;letter-spacing:.14em;color:var(--hi);font-size:12px;white-space:nowrap}
+.brand .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);animation:blink 2.4s ease-in-out infinite}
+.brand em{font-style:normal;color:var(--accent)}
+.brand .sub{color:var(--dim);font-weight:400;letter-spacing:.2em;font-size:9px}
+@keyframes blink{50%{opacity:.35}}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;justify-content:flex-start}
+.tabs::-webkit-scrollbar{display:none}
+.tabs a{padding:6px 12px;border-radius:8px;color:var(--dim);letter-spacing:.12em;font-size:10px;
+  white-space:nowrap;border:1px solid transparent;transition:.18s}
+.tabs a:hover{color:var(--hi);background:var(--panel2)}
+.tabs a.on{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700;box-shadow:0 0 14px -4px var(--accent)}
+.asof{color:var(--dim);font-size:9.5px;letter-spacing:.08em;white-space:nowrap}
+
+main{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:18px 16px 40px;display:flex;flex-direction:column;gap:16px}
+.sec{display:flex;align-items:center;gap:10px;margin-top:6px}
+.sec h2{font-size:10px;letter-spacing:.16em;color:var(--accent);font-weight:700;white-space:nowrap}
+.sec::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent)}
+.sec .hint{color:var(--dim);font-size:9.5px;letter-spacing:.06em}
+
+.card{position:relative;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);
+  padding:13px 14px;backdrop-filter:blur(6px);transition:border-color .2s,box-shadow .25s,transform .18s ease-out;
+  will-change:transform}
+.card:hover{border-color:var(--border-hi);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 30%,transparent),0 14px 34px -18px color-mix(in srgb,var(--accent) 55%,transparent)}
+.grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(215px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+
+.rv{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .55s cubic-bezier(.2,.7,.2,1)}
+.rv.in{opacity:1;transform:none}
+
+.hero{position:relative;overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--panel);padding:26px 24px 22px}
+.hero::before,.hero::after{content:"";position:absolute;border-radius:50%;filter:blur(70px);opacity:.5;pointer-events:none;animation:drift 16s ease-in-out infinite alternate}
+.hero::before{width:440px;height:440px;top:-180px;right:-90px;background:color-mix(in srgb,var(--accent) 42%,transparent)}
+.hero::after{width:320px;height:320px;bottom:-150px;left:8%;background:color-mix(in srgb,var(--info) 30%,transparent);animation-delay:-8s}
+@keyframes drift{to{transform:translate3d(-44px,28px,0) scale(1.14)}}
+.hero>*{position:relative;z-index:1}
+.eyebrow{font-size:9.5px;letter-spacing:.2em;color:var(--accent);text-transform:uppercase;margin-bottom:16px}
+.hero-quotes{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch}
+.hq{flex:1 1 200px;min-width:0;border:1px solid var(--border);border-radius:12px;
+  padding:13px 16px;background:rgba(255,255,255,.025);transition:border-color .2s,box-shadow .2s}
+.hq:hover{border-color:var(--border-hi);
+  box-shadow:0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent)}
+.hq-l{font-size:9.5px;letter-spacing:.18em;color:var(--dim);margin-bottom:2px}
+.hq-p{font-size:clamp(30px,5.4vw,46px);line-height:1.05;font-weight:600;color:var(--hi);letter-spacing:-.02em}
+.hq-c{font-size:13px;font-weight:600;margin-top:4px}
+.hq-m{font-size:9.5px;color:var(--dim);margin-top:2px;letter-spacing:.08em}
+.hero-foot{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:20px;padding-top:14px;border-top:1px dashed var(--border)}
+.badge{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:999px;font-size:10px;
+  font-weight:700;letter-spacing:.14em;border:1px solid var(--border);background:var(--panel2)}
+.badge .pulse{width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 8px currentColor;animation:blink 1.6s infinite}
+.badge.up{color:var(--up);border-color:color-mix(in srgb,var(--up) 45%,transparent);background:color-mix(in srgb,var(--up) 10%,transparent)}
+.badge.down{color:var(--down);border-color:color-mix(in srgb,var(--down) 45%,transparent);background:color-mix(in srgb,var(--down) 10%,transparent)}
+.badge.mixed,.badge.flat{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,transparent);background:color-mix(in srgb,var(--amber) 10%,transparent)}
+.hero-foot .meta{color:var(--dim);font-size:9.5px;letter-spacing:.08em}
+
+.tape{overflow:hidden;border:1px solid var(--border);border-radius:var(--r);background:var(--panel);padding:7px 0;white-space:nowrap}
+.tape-track{display:inline-flex;animation:marquee 52s linear infinite;will-change:transform}
+.tape:hover .tape-track{animation-play-state:paused}
+.tape-track>span{display:inline-flex}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.tape-i{position:relative;display:inline-flex;gap:8px;align-items:baseline;padding-right:30px;margin-right:4px}
+.tape-i::after{content:"·";position:absolute;right:12px;color:var(--dim)}
+.tape-i b{color:var(--hi);letter-spacing:.06em}
+.tape-i span{color:var(--dim)}
+
+.q-label{font-size:9px;letter-spacing:.16em;color:var(--dim);text-transform:uppercase;margin-bottom:8px}
+.q-top{display:flex;justify-content:space-between;gap:8px;align-items:baseline;margin-bottom:6px}
+.q-name{font-size:10px;letter-spacing:.12em;color:var(--hi);font-weight:700;text-transform:uppercase}
+.q-pe{font-size:9px;color:var(--dim)}
+.q-price{font-size:23px;font-weight:600;color:var(--hi);letter-spacing:-.01em;line-height:1.1}
+.q-price.sm{font-size:18px}
+.q-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:11px;padding-top:9px;border-top:1px solid var(--border)}
+.q-grid div{display:flex;flex-direction:column;gap:2px;min-width:0}
+.q-grid i{font-style:normal;font-size:8px;letter-spacing:.1em;color:var(--dim)}
+.q-grid b{font-size:10.5px;font-weight:600}
+.sub{color:var(--dim);font-size:9.5px;margin-top:8px;letter-spacing:.05em}
+.big{font-size:17px;font-weight:600;margin-top:4px}
+
+.br-nums{display:flex;gap:14px;font-size:10.5px;margin-bottom:9px}
+.bar3{display:flex;height:9px;border-radius:6px;overflow:hidden;gap:2px;background:rgba(255,255,255,.05)}
+.seg{height:100%;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.seg.up{background:var(--up)} .seg.flat{background:#3a4149} .seg.dn{background:var(--down)}
+
+.chip{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 12px;
+  border:1px solid var(--border);border-radius:10px;background:var(--panel);transition:.2s}
+.chip:hover{border-color:var(--border-hi);transform:translateY(-2px)}
+.chip span{color:var(--dim);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase}
+.chip b{font-size:12px}
+.chip.up{border-color:color-mix(in srgb,var(--up) 36%,transparent);background:color-mix(in srgb,var(--up) 7%,transparent)}
+.chip.down{border-color:color-mix(in srgb,var(--down) 36%,transparent);background:color-mix(in srgb,var(--down) 7%,transparent)}
+.chips{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+
+.tblwrap{border:1px solid var(--border);border-radius:var(--r);overflow-x:auto;background:var(--panel)}
+table{width:100%;border-collapse:collapse;min-width:640px}
+th,td{padding:7px 10px;text-align:left;white-space:nowrap;border-bottom:1px solid rgba(255,255,255,.055)}
+th{background:rgba(255,255,255,.04);color:var(--dim);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  position:sticky;top:0;font-weight:600}
+td.n,th.n{text-align:right}
+tbody tr{transition:background .12s}
+tbody tr:hover{background:rgba(255,255,255,.04)}
+tbody tr:last-child td{border-bottom:none}
+td:first-child,th:first-child{position:sticky;left:0;background:var(--bg2);z-index:1}
+th:first-child{background:#12161c}
+tbody tr:hover td:first-child{background:#171c23}
+
+.th{overflow:hidden}
+.th-rank{position:absolute;top:10px;right:12px;font-size:9px;color:var(--dim);letter-spacing:.1em}
+.th-px{font-size:17px;color:var(--hi);font-weight:600;margin-top:6px}
+.th-d{display:flex;gap:12px;margin-top:7px;font-size:11px}
+.mbar{height:5px;border-radius:4px;background:rgba(255,255,255,.06);margin-top:10px;overflow:hidden}
+.mbar i{display:block;height:100%;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
+.mbar i.up{background:linear-gradient(90deg,color-mix(in srgb,var(--up) 40%,transparent),var(--up))}
+.mbar i.down{background:linear-gradient(90deg,color-mix(in srgb,var(--down) 40%,transparent),var(--down))}
+
+.news-i{display:flex;gap:10px;align-items:baseline;padding:8px 12px;
+  border-bottom:1px solid rgba(255,255,255,.05);transition:background .12s}
+.news-i:last-child{border-bottom:none}
+.news-i:hover{background:rgba(255,255,255,.045)}
+.news-src{color:var(--accent);font-size:9px;letter-spacing:.1em;min-width:32px;flex:none}
+.news-t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--txt)}
+.news-m{color:var(--dim);font-size:9px;white-space:nowrap;flex:none}
+
+.chips2{display:flex;flex-wrap:wrap;gap:6px}
+.chip2{font:inherit;font-size:9.5px;letter-spacing:.1em;padding:6px 12px;border-radius:999px;
+  border:1px solid var(--border);background:var(--panel);color:var(--dim);cursor:pointer;transition:.15s}
+.chip2:hover{color:var(--hi);border-color:var(--border-hi);background:var(--panel2)}
+.chip2.on{color:var(--bg);background:var(--accent);border-color:var(--accent);font-weight:700}
+
+.empty{padding:18px;text-align:center;color:var(--dim);border:1px dashed var(--border);border-radius:var(--r);letter-spacing:.06em}
+footer{max-width:1440px;margin:0 auto;padding:14px 16px 30px;color:var(--dim);font-size:9.5px;
+  letter-spacing:.08em;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px 18px;justify-content:space-between}
+
+@media (max-width:640px){
+  main{padding:12px 10px 30px;gap:12px}
+  .topbar{grid-template-columns:auto 1fr;gap:8px;padding:0 10px}
+  .asof{display:none}
+  .hero{padding:20px 14px 16px}
+  .hero-quotes{gap:10px}
+  .hq{flex:1 1 100%}
+  .sec{flex-wrap:wrap}
+  .q-grid{grid-template-columns:repeat(5,1fr);gap:4px}
+  .q-grid b{font-size:9.5px}
+  td:first-child,th:first-child{box-shadow:1px 0 0 rgba(255,255,255,.06)}
+}
+@media (prefers-reduced-motion:reduce){
+  .rv{transition:none;opacity:1;transform:none}
+  .tape-track,.hero::before,.hero::after{animation:none}
+}
+</style>
+</head>
+<body>
+<div class="progress"><i id="pbar"></i></div>
+
+<header class="topbar">
+  <div class="brand"><span class="dot"></span>ST<em>O</em>X<span class="sub">TERMINAL</span></div>
+  <nav class="tabs" id="tabs">
+    <a href="#/home" data-v="home">HOME</a>
+    <a href="#/markets" data-v="markets">MARKETS</a>
+    <a href="#/macro" data-v="macro">MACRO</a>
+    <a href="#/watch" data-v="watch">WATCH</a>
+    <a href="#/screeners" data-v="screeners">SCREENERS</a>
+    <a href="#/themes" data-v="themes">THEMES</a>
+  </nav>
+  <div class="asof" id="asof"></div>
+</header>
+
+<main id="app"></main>
+
+<footer>
+  <span>STOX // MARKET TERMINAL — PREVIEW BUILD</span>
+  <span id="f-asof"></span>
+  <span>source: market_check.py · educational, not investment advice</span>
+</footer>
+
+<noscript><div style="padding:20px">javascript required</div></noscript>
+
+<script>
+const DATA = {"asof":"2026-10-03 20:13 UTC","market":{"US INDICES":[{"name":"S&P 500","px":7722.72,"chg":0.7339775,"w1":-0.2671941817462775,"m1":0.7320078844944122,"m3":2.4582654132951243,"y1":14.993473142019397,"pe":null},{"name":"Nasdaq","px":27190.863,"chg":1.1881229,"w1":0.4512170087923595,"m1":3.71132658185489,"m3":4.095144367062331,"y1":19.360188401183475,"pe":null},{"name":"Dow Jones","px":51176.96,"chg":0.49169305,"w1":-1.2573364725857683,"m1":-3.552429394327483,"m3":-3.54145129772816,"y1":9.450047284404839,"pe":null},{"name":"Russell 2k","px":2832.8948,"chg":0.93599164,"w1":-0.1638789238729177,"m1":-4.072573631485765,"m3":-5.869339979732424,"y1":14.406060163276413,"pe":null}],"S&P SECTORS":[{"name":"Tech","px":199.81,"chg":1.01107,"w1":1.8036343858323978,"m1":8.955970373723265,"m3":8.973778465318416,"y1":41.07536510619263,"pe":35.37033},{"name":"Health","px":166.18,"chg":-0.0120363,"w1":-2.6479228783064634,"m1":-3.5466970052353886,"m3":2.9982568142372212,"y1":16.66683449502695,"pe":29.69025},{"name":"Fincls","px":53.49,"chg":0.0561216,"w1":-2.461703994100717,"m1":-6.903723271328833,"m3":-4.383129934456253,"y1":1.1419917828929593,"pe":15.167335},{"name":"Cons Disc","px":110.04,"chg":1.13041,"w1":-0.4703298250262944,"m1":-3.9854092489970405,"m3":-6.548296710826196,"y1":-6.715267141999714,"pe":24.046375},{"name":"Cons Stpl","px":80.53,"chg":0.248969,"w1":-1.8644879658988533,"m1":-5.226669922979809,"m3":-3.6151879093412442,"y1":6.036165437356833,"pe":23.82189},{"name":"Energy","px":62.82,"chg":0.191386,"w1":1.2572513987530565,"m1":-2.9287222624625575,"m3":18.941096231654477,"y1":45.34049344092206,"pe":17.426834},{"name":"Indust","px":169.95,"chg":0.776801,"w1":-0.28163806147206705,"m1":-1.3735638285767293,"m3":-8.166222305187286,"y1":11.322290169067738,"pe":27.592321},{"name":"Mats","px":48.86,"chg":0.659249,"w1":-1.8875474721080865,"m1":-7.2996124539595915,"m3":-5.569727239162059,"y1":10.71210070026396,"pe":22.800852},{"name":"Real Est","px":40.81,"chg":0.31957,"w1":-1.8046197671254038,"m1":-5.89180734825433,"m3":-7.08171124440068,"y1":0.4038077268560647,"pe":29.084785},{"name":"Utils","px":39.83,"chg":0.378028,"w1":0.8099304558742082,"m1":-5.969369518491341,"m3":-11.428548161233154,"y1":-7.848379936795114,"pe":17.934368},{"name":"Comms","px":110.32,"chg":0.345641,"w1":-2.33710996020301,"m1":-1.544573291091056,"m3":0.42971266898101934,"y1":-4.041529043042091,"pe":15.220239}],"WORLD":[{"name":"FTSE 100","px":10461.95,"chg":0.32297462,"w1":-2.18133020062935,"m1":-3.411346535567561,"m3":-1.7818566642979428,"y1":10.227263022848533,"pe":null},{"name":"Euro Stoxx","px":6238.5,"chg":1.020975,"w1":-1.0204928272199543,"m1":-2.25754509184225,"m3":-1.2873681543787985,"y1":10.497872497571702,"pe":null},{"name":"Nikkei","px":68309.46,"chg":-0.9386436,"w1":2.931185369371514,"m1":3.0123256243838936,"m3":-2.5018574423194884,"y1":52.012530117214276,"pe":null},{"name":"Hang Seng","px":23972.29,"chg":-2.604207,"w1":-3.185806825039783,"m1":-5.28983729109661,"m3":1.5072998049217246,"y1":-12.14796644908509,"pe":null}],"CONDITIONS":[{"name":"VIX","px":15.31,"chg":-6.5893774,"w1":2.9589814219495914,"m1":6.91341302996189,"m3":-5.083687438399909,"y1":-8.048043421107653,"pe":null},{"name":"Dollar","px":101.924,"chg":-0.007844058,"w1":0.9507765404243917,"m1":2.380476903072659,"m3":1.0708992041599474,"y1":4.308226598323772,"pe":null},{"name":"US 10Y","px":5.277,"chg":0.7637953,"w1":1.7939802252393333,"m1":10.029189870968613,"m3":17.816473376752228,"y1":29.085131649869478,"pe":null}],"HARD ASSETS / CRYPTO":[{"name":"Gold","px":380.14,"chg":-0.684501,"w1":-3.3730685265108695,"m1":-5.620930582321426,"m3":-0.5207626223921569,"y1":6.29124233263374,"pe":null},{"name":"Bitcoin","px":84875.29,"chg":0.5267551,"w1":1.6438763983236404,"m1":9.841819825248566,"m3":35.230718578787744,"y1":-4.753013587202859,"pe":null},{"name":"Ethereum","px":2687.34,"chg":0.9822688,"w1":-0.049415284250931,"m1":6.389511040163365,"m3":45.780310778995,"y1":-8.864822626051472,"pe":null},{"name":"Solana","px":119.93,"chg":1.8427293,"w1":0.9199759530071905,"m1":17.826107781127696,"m3":66.87937787968288,"y1":-5.606929071521282,"pe":null}],"THEMES":[{"name":"Nuclear","px":102.74,"chg":-0.00973444,"w1":-2.8738901026744257,"m1":-12.210545214544865,"m3":-11.818731456514975,"y1":-25.524630068647692,"pe":17.343634},{"name":"Memory*","px":588.9,"chg":2.18104,"w1":2.8323028472664102,"m1":17.5185576521959,"m3":1.3370429361317049,"y1":111.02745041087694,"pe":43.289104},{"name":"Semis","px":13136.675,"chg":2.3982759,"w1":3.692026445110863,"m1":15.851312228542458,"m3":1.8335481621406302,"y1":99.53202061779211,"pe":null},{"name":"Cloud","px":168.14,"chg":0.706752,"w1":2.101048620204393,"m1":5.542653924030749,"m3":22.230301231307536,"y1":24.492819805289436,"pe":29.897688},{"name":"ARK Genom","px":54.0,"chg":1.56103,"w1":1.1993991422936334,"m1":14.528098096373077,"m3":23.93849065464828,"y1":79.76031409535676,"pe":null},{"name":"Quantum","px":156.06,"chg":1.8336,"w1":1.5222458491468416,"m1":8.161498980732706,"m3":-0.2604090732711728,"y1":43.13790115686791,"pe":28.02664},{"name":"NeoCloud*","px":41.24,"chg":-0.6025548,"w1":2.3833240522920462,"m1":0.7081829307065579,"m3":20.86753508051393,"y1":17.392543195500032,"pe":34.496372},{"name":"Green NRJ","px":17.19,"chg":2.07839,"w1":-0.23214747093092125,"m1":-1.0362711368972266,"m3":-14.562625163823895,"y1":8.699881651452213,"pe":20.993906},{"name":"ARK Fin","px":45.53,"chg":-0.0439088,"w1":-2.879697649445112,"m1":0.3747754996866526,"m3":8.301612244923895,"y1":-20.817009943537567,"pe":32.075287},{"name":"Cybersec","px":104.7,"chg":0.886489,"w1":3.7147103648974333,"m1":11.933952364744194,"m3":12.692940098208606,"y1":37.24158891061591,"pe":34.69737},{"name":"Space","px":32.68,"chg":2.22084,"w1":-0.04587670832983948,"m1":2.605965192355053,"m3":-4.079833877602301,"y1":7.997356437506431,"pe":31.88831},{"name":"UFO","px":43.13,"chg":2.81287,"w1":-0.955173610311133,"m1":-0.013857644582460082,"m3":-14.263527247104701,"y1":13.142656601154368,"pe":24.928577},{"name":"MEME","px":8.967,"chg":2.48,"w1":1.7820610730405084,"m1":19.400795397372338,"m3":5.246473308090072,"y1":-8.639833000591835,"pe":16.166534}]},"watch":[{"ticker":"AAOI","currentPrice":105.36,"targetMeanPrice":163.4,"liveChangePercent":2.004066,"change1WPercent":4.961151118943685,"change1MPercent":-23.696408449311214,"change3MPercent":-39.02071920666307,"change1YPercent":289.21315773230833,"numberOfAnalystOpinions":5.0,"live":{"px":115.59,"chg":7.70592,"w1":13.994077513292936,"m1":12.081837890342516,"m3":-6.29864156454043,"y1":313.85605110956743,"pe":null}},{"ticker":"AMT","currentPrice":177.85,"targetMeanPrice":215.69565,"liveChangePercent":2.81536,"change1WPercent":0.05626222420007654,"change1MPercent":4.353701664383625,"change3MPercent":-5.156782182499898,"change1YPercent":-5.310482133814876,"numberOfAnalystOpinions":23.0,"live":{"px":162.2,"chg":0.70781,"w1":-3.003212957166135,"m1":-5.185246168788538,"m3":1.1373016679472991,"y1":-11.256423406298556,"pe":22.310865}},{"ticker":"BE","currentPrice":275.75,"targetMeanPrice":276.04614,"liveChangePercent":6.67724,"change1WPercent":17.066438729533353,"change1MPercent":16.271713502278075,"change3MPercent":10.796365553689014,"change1YPercent":309.9761986945637,"numberOfAnalystOpinions":26.0,"live":{"px":289.15,"chg":4.16817,"w1":0.1558647975153038,"m1":33.07713343195926,"m3":-1.9996590884878485,"y1":220.24586439754782,"pe":370.70514}},{"ticker":"CBRS","currentPrice":191.93,"targetMeanPrice":291.63635,"liveChangePercent":0.30834973,"change1WPercent":0.7823935177870167,"change1MPercent":-26.761049201006802,"change3MPercent":-15.281399209722036,"change1YPercent":-38.30006488676406,"numberOfAnalystOpinions":11.0,"live":{"px":166.43,"chg":-1.8228,"w1":-19.501817327312576,"m1":-9.803821362353816,"m3":-13.322224135652473,"y1":-46.4975765078128,"pe":null}},{"ticker":"CEG","currentPrice":284.75,"targetMeanPrice":348.304,"liveChangePercent":-0.4266186,"change1WPercent":-0.10524041600262768,"change1MPercent":2.335198189908283,"change3MPercent":15.596339595269203,"change1YPercent":-11.48083820042145,"numberOfAnalystOpinions":20.0,"live":{"px":257.49,"chg":-0.552303,"w1":-2.1954643599718104,"m1":-11.22259597006786,"m3":4.887061674213622,"y1":-28.075170342811628,"pe":25.194715}},{"ticker":"COHR","currentPrice":305.37,"targetMeanPrice":415.36197,"liveChangePercent":4.1614,"change1WPercent":15.491089931461556,"change1MPercent":-14.135085328051078,"change3MPercent":-16.010229826967727,"change1YPercent":196.5045164105324,"numberOfAnalystOpinions":22.0,"live":{"px":337.04,"chg":5.59228,"w1":13.930305865930004,"m1":25.46158061597701,"m3":0.39916481655182245,"y1":196.74238696197085,"pe":82.00487}},{"ticker":"CRDO","currentPrice":162.95,"targetMeanPrice":281.4663,"liveChangePercent":1.6468089,"change1WPercent":-0.7431328709936569,"change1MPercent":-39.234041347357426,"change3MPercent":-38.45369733424193,"change1YPercent":0.5926238795754823,"numberOfAnalystOpinions":19.0,"live":{"px":218.64,"chg":4.03007,"w1":3.635587109335736,"m1":32.33264603211457,"m3":-17.665219566830803,"y1":51.970533683245044,"pe":76.985916}},{"ticker":"LITE","currentPrice":927.03,"targetMeanPrice":1149.3789,"liveChangePercent":-0.9265772,"change1WPercent":9.400856135892655,"change1MPercent":-0.5833905194982392,"change3MPercent":4.208680550719479,"change1YPercent":468.66029014911436,"numberOfAnalystOpinions":26.0,"live":{"px":1085.42,"chg":3.79047,"w1":15.267882525751574,"m1":24.67780360656926,"m3":48.43351028311966,"y1":562.6091570247811,"pe":null}},{"ticker":"NBIS","currentPrice":224.55,"targetMeanPrice":290.70587,"liveChangePercent":-1.5606495,"change1WPercent":6.608744170466085,"change1MPercent":-13.368058458113563,"change3MPercent":1.0394157224158374,"change1YPercent":148.36853661788555,"numberOfAnalystOpinions":17.0,"live":{"px":242.81,"chg":4.53332,"w1":2.3090193760837874,"m1":18.97202308563837,"m3":13.98459895251445,"y1":89.72495014037595,"pe":null}},{"ticker":"PFE","currentPrice":27.72,"targetMeanPrice":28.875,"liveChangePercent":0.253163,"change1WPercent":-3.783409138470928,"change1MPercent":5.3591785482068,"change3MPercent":7.775810200540367,"change1YPercent":24.27340749413318,"numberOfAnalystOpinions":26.0,"live":{"px":27.8,"chg":-1.13799,"w1":-3.034533787646432,"m1":-4.204001383386402,"m3":19.250975369192112,"y1":8.694464811680458,"pe":37.066666}},{"ticker":"PSQL","currentPrice":7.98,"targetMeanPrice":19.948956,"liveChangePercent":2.439025,"change1WPercent":-18.15384595822065,"change1MPercent":-21.53392370492998,"change3MPercent":-23.121387947081917,"change1YPercent":-19.798993245781237,"numberOfAnalystOpinions":1.0,"live":{"px":6.05,"chg":-3.35463,"w1":-13.44777698373133,"m1":-50.36915177199188,"m3":-41.82691910915811,"y1":-39.19597681699162,"pe":null}},{"ticker":"RSG","currentPrice":222.74,"targetMeanPrice":245.91667,"liveChangePercent":0.750861,"change1WPercent":-1.0572093441919783,"change1MPercent":3.9578134993639935,"change3MPercent":7.373361309150561,"change1YPercent":-1.3887394265984732,"numberOfAnalystOpinions":24.0,"live":{"px":209.56,"chg":1.5753,"w1":-0.8766894660636626,"m1":-5.5183575246468,"m3":-2.022302038482171,"y1":-5.385364666696479,"pe":29.557121}},{"ticker":"SPCX","currentPrice":151.21,"targetMeanPrice":220.6842,"liveChangePercent":2.0448198,"change1WPercent":0.9817023953363258,"change1MPercent":3.462205288196407,"change3MPercent":-6.051562857442705,"change1YPercent":-6.051562857442705,"numberOfAnalystOpinions":19.0,"live":{"px":158.96,"chg":7.35463,"w1":6.914187883034839,"m1":12.969937551855315,"m3":-0.9101056425275256,"y1":-1.2364027785691345,"pe":null}},{"ticker":"VST","currentPrice":148.38,"targetMeanPrice":217.42105,"liveChangePercent":0.904455,"change1WPercent":2.8844845561630805,"change1MPercent":1.1589939268601634,"change3MPercent":1.5082551779822984,"change1YPercent":-28.870599000745003,"numberOfAnalystOpinions":19.0,"live":{"px":140.02,"chg":0.193205,"w1":1.1266773674347252,"m1":-2.2380410514207583,"m3":-10.79423342164133,"y1":-30.277040148661662,"pe":23.572392}}],"top_stox":[{"ticker":"PL","allocation":6.44,"currentPrice":16.45,"liveChangePercent":-1.43799,"change1WPercent":-10.354221139139263,"change1MPercent":-32.85713974310427,"change3MPercent":-51.85835046988767,"change1YPercent":68.20042139144206},{"ticker":"GOOGL","allocation":6.34,"currentPrice":338.5,"liveChangePercent":1.7739007,"change1WPercent":-1.0985828488112914,"change1MPercent":-1.4037473084176466,"change3MPercent":-5.32532095764755,"change1YPercent":40.9386730760996},{"ticker":"RGTI","allocation":4.61,"currentPrice":15.27,"liveChangePercent":0.7255977,"change1WPercent":0.5928863687651109,"change1MPercent":-17.100975056912404,"change3MPercent":-25.981574992966483,"change1YPercent":-20.01047493080491},{"ticker":"MU","allocation":4.21,"currentPrice":975.26,"liveChangePercent":-0.21996535,"change1WPercent":1.7846744907297873,"change1MPercent":7.019722951058482,"change3MPercent":-2.0544844633309522,"change1YPercent":521.2716081795827},{"ticker":"RKLB","allocation":3.93,"currentPrice":62.95,"liveChangePercent":1.5978078,"change1WPercent":-1.3477520636937856,"change1MPercent":-22.446714077882802,"change3MPercent":-45.15594926605463,"change1YPercent":18.016499030484745},{"ticker":"AMZN","allocation":3.5,"currentPrice":256.78,"liveChangePercent":1.9413233,"change1WPercent":-0.8188471097589689,"change1MPercent":-3.928464549519184,"change3MPercent":6.322721468998549,"change1YPercent":12.548764255414536},{"ticker":"OKLO","allocation":3.11,"currentPrice":35.87,"liveChangePercent":-0.747096,"change1WPercent":-5.704526633585905,"change1MPercent":-9.235833713564311,"change3MPercent":-30.806329424568666,"change1YPercent":-71.83574217966098},{"ticker":"INTC","allocation":2.86,"currentPrice":102.94,"liveChangePercent":2.6116455,"change1WPercent":12.294103302686477,"change1MPercent":1.9712784084425117,"change3MPercent":-11.98700132764251,"change1YPercent":327.4917058453345},{"ticker":"AAPL","allocation":2.52,"currentPrice":333.69,"liveChangePercent":1.02022,"change1WPercent":-2.163780081605682,"change1MPercent":2.6864879418655896,"change3MPercent":6.818197581868257,"change1YPercent":29.804923785109636},{"ticker":"IBM","allocation":2.37,"currentPrice":243.29,"liveChangePercent":3.96119,"change1WPercent":3.655569139293413,"change1MPercent":3.0977191672779902,"change3MPercent":-10.847656248689496,"change1YPercent":-1.509316129446725},{"ticker":"FIVE","allocation":2.19,"currentPrice":244.6,"liveChangePercent":1.3759977,"change1WPercent":1.9336553008107105,"change1MPercent":2.70838226846013,"change3MPercent":21.10709740315764,"change1YPercent":74.83918282691384},{"ticker":"LUNR","allocation":2.18,"currentPrice":14.35,"liveChangePercent":-1.846782,"change1WPercent":-2.3809485192973434,"change1MPercent":-15.33923459846993,"change3MPercent":-53.16579416670029,"change1YPercent":63.439644850804825},{"ticker":"BKSY","allocation":1.77,"currentPrice":20.61,"liveChangePercent":-0.674696,"change1WPercent":-0.09693917221805792,"change1MPercent":-35.33103210659559,"change3MPercent":-42.702252124225296,"change1YPercent":6.842921887897346},{"ticker":"CRWV","allocation":1.63,"currentPrice":88.99,"liveChangePercent":-0.14587621,"change1WPercent":5.238884145078315,"change1MPercent":-17.395344759318565,"change3MPercent":-7.050344840831013,"change1YPercent":-20.516257063714782},{"ticker":"ASTS","allocation":1.61,"currentPrice":59.86,"liveChangePercent":-0.08345725,"change1WPercent":-3.653630160532262,"change1MPercent":-19.44556240477373,"change3MPercent":-38.64288426780645,"change1YPercent":54.597104140443896},{"ticker":"QBTS","allocation":1.49,"currentPrice":16.8,"liveChangePercent":0.84033245,"change1WPercent":-0.11890878791054327,"change1MPercent":-18.997109824197445,"change3MPercent":-29.471035044929195,"change1YPercent":-5.40541092032255},{"ticker":"GSAT","allocation":1.49,"currentPrice":82.48,"liveChangePercent":0.6221815,"change1WPercent":0.6099048298681353,"change1MPercent":-0.8892067446707008,"change3MPercent":1.6890676072898403,"change1YPercent":175.48430823543305},{"ticker":"MRVL","allocation":1.3,"currentPrice":236.1,"liveChangePercent":4.027141,"change1WPercent":13.058470542236833,"change1MPercent":8.761748715693995,"change3MPercent":-15.871088368945053,"change1YPercent":251.30369394424815},{"ticker":"AMD","allocation":1.29,"currentPrice":516.13,"liveChangePercent":2.4880855,"change1WPercent":13.146703073319998,"change1MPercent":6.874704969778156,"change3MPercent":5.66690387634774,"change1YPercent":225.4903077777577},{"ticker":"IONQ","allocation":1.27,"currentPrice":36.75,"liveChangePercent":-0.2443,"change1WPercent":-5.817530576968554,"change1MPercent":-18.69469163785459,"change3MPercent":-36.62700649024772,"change1YPercent":-33.91476425706216}],"earnings_week":[]};
+const NEWS = [{"src":"SPY","title":"Michael Saylor Says Strategy's STRC Is Now Steadier Than The S&P 500's Biggest Tracker: \u2018A Milestone For Digital Credit\u2019","provider":"Stocktwits","pubDate":"2026-10-03T17:46:24+00:00"},{"src":"SPY","title":"Is the AI Bull Market About to Crash? This Risk Indicator Is Saying Yes","provider":"24/7 Wall St.","pubDate":"2026-10-03T14:44:43+00:00"},{"src":"SPY","title":"Wall Street Expects S&P 500 Profit Growth to Collapse From 35% to 15% in 2027","provider":"24/7 Wall St.","pubDate":"2026-10-03T13:08:44+00:00"},{"src":"QQQ","title":"S&P 500, Nasdaq, Dow End Week Higher As Weak Jobs Report Cools Rate Hike Bets \u2014 NVDA, BA, SPCX, RIVN, APLD In Focus","provider":"Stocktwits","pubDate":"2026-10-02T22:28:59+00:00"},{"src":"QQQ","title":"How Much Do You Need Invested to Double the Average Social Security Check With Dividends?","provider":"24/7 Wall St.","pubDate":"2026-10-02T20:33:54+00:00"}];
+const SCREENERS = {"value":{"title":"VALUE \u2014 cheapest vs earnings + FCF","cols":["ticker","allocation","value_composite","trailingPE","forwardPE","pegRatio","priceToBook","enterpriseToEbitda"],"rows":[{"ticker":"LYFT","allocation":0.49,"value_composite":64.72758674999518,"trailingPE":2.2299855,"forwardPE":7.227472,"pegRatio":0.15,"priceToBook":1.921244,"enterpriseToEbitda":113.683},{"ticker":"JD","allocation":0.44,"value_composite":49.682539109363965,"trailingPE":18.039999,"forwardPE":6.4574995,"pegRatio":0.49,"priceToBook":1.1062235,"enterpriseToEbitda":-1.356},{"ticker":"ROOT","allocation":0.5,"value_composite":21.78717304652257,"trailingPE":14.939944,"forwardPE":18.966312,"pegRatio":null,"priceToBook":2.5282438,"enterpriseToEbitda":6.762},{"ticker":"DLO","allocation":0.45,"value_composite":13.88392682479181,"trailingPE":21.85294,"forwardPE":12.992576,"pegRatio":null,"priceToBook":7.9211082,"enterpriseToEbitda":14.19},{"ticker":"CRM","allocation":0.63,"value_composite":13.105688695840419,"trailingPE":22.684982,"forwardPE":15.474599,"pegRatio":0.83,"priceToBook":5.312232,"enterpriseToEbitda":18.207},{"ticker":"NFLX","allocation":0.45,"value_composite":11.985791822431647,"trailingPE":24.339622,"forwardPE":20.256954,"pegRatio":1.43,"priceToBook":10.689132,"enterpriseToEbitda":22.395},{"ticker":"INOD","allocation":0.44,"value_composite":11.70411373862195,"trailingPE":41.248062,"forwardPE":25.487743,"pegRatio":0.87,"priceToBook":11.460262,"enterpriseToEbitda":26.715},{"ticker":"PATH","allocation":0.39,"value_composite":11.490995668588994,"trailingPE":20.522388,"forwardPE":14.930397,"pegRatio":0.5,"priceToBook":3.6764705,"enterpriseToEbitda":32.292},{"ticker":"UBER","allocation":0.72,"value_composite":11.311422842954471,"trailingPE":15.717105,"forwardPE":16.267635,"pegRatio":6.08,"priceToBook":5.3525014,"enterpriseToEbitda":20.981},{"ticker":"OSCR","allocation":0.59,"value_composite":10.814097177174348,"trailingPE":25.207693,"forwardPE":17.413254,"pegRatio":null,"priceToBook":4.922638,"enterpriseToEbitda":3.091}]},"quality":{"title":"QUALITY \u2014 compounders (F>=5, quality>20, D/E<100)","cols":["ticker","allocation","quality_score","piotroski_f","returnOnEquity","operatingMargins","debtToEquity"],"rows":[{"ticker":"AAPL","allocation":2.52,"quality_score":64.2772535,"piotroski_f":5.0,"returnOnEquity":1.4875101,"operatingMargins":0.32623002,"debtToEquity":78.445},{"ticker":"MU","allocation":4.21,"quality_score":63.61175075,"piotroski_f":6.0,"returnOnEquity":0.66638,"operatingMargins":0.80370003,"debtToEquity":6.33},{"ticker":"GOOGL","allocation":6.34,"quality_score":39.14124975,"piotroski_f":5.0,"returnOnEquity":0.48676,"operatingMargins":0.34033,"debtToEquity":18.859},{"ticker":"CRDO","allocation":null,"quality_score":34.76250075,"piotroski_f":5.0,"returnOnEquity":0.30674,"operatingMargins":0.25198,"debtToEquity":0.96},{"ticker":"CSCO","allocation":0.8,"quality_score":31.885000124999998,"piotroski_f":5.0,"returnOnEquity":0.27319,"operatingMargins":0.27719,"debtToEquity":62.017},{"ticker":"DUOL","allocation":0.12,"quality_score":31.1157513,"piotroski_f":6.0,"returnOnEquity":0.3442,"operatingMargins":0.11684,"debtToEquity":6.11},{"ticker":"QCOM","allocation":0.82,"quality_score":29.53000075,"piotroski_f":6.0,"returnOnEquity":0.33754003,"operatingMargins":0.18528,"debtToEquity":55.21},{"ticker":"PATH","allocation":0.39,"quality_score":28.799,"piotroski_f":6.0,"returnOnEquity":0.20027,"operatingMargins":0.08922,"debtToEquity":4.093},{"ticker":"PFE","allocation":null,"quality_score":28.34775,"piotroski_f":5.0,"returnOnEquity":0.05014,"operatingMargins":0.27877,"debtToEquity":74.253},{"ticker":"INOD","allocation":0.44,"quality_score":28.08574925,"piotroski_f":6.0,"returnOnEquity":0.37765998,"operatingMargins":0.17212999,"debtToEquity":2.402}]},"growth_rule40":{"title":"GROWTH \u2014 Rule-of-40 (revenue > $1B)","cols":["ticker","allocation","rule40","revenueGrowth","earningsGrowth","totalRevenue"],"rows":[{"ticker":"MU","allocation":4.21,"rule40":354.1625695624457,"revenueGrowth":3.457,"earningsGrowth":13.685,"totalRevenue":90273996800.0},{"ticker":"BE","allocation":null,"rule40":182.5771569695336,"revenueGrowth":1.655,"earningsGrowth":null,"totalRevenue":3113149952.0},{"ticker":"CRDO","allocation":null,"rule40":130.30552223528824,"revenueGrowth":1.147,"earningsGrowth":0.971,"totalRevenue":1591044992.0},{"ticker":"LITE","allocation":null,"rule40":116.7552087079407,"revenueGrowth":1.093,"earningsGrowth":null,"totalRevenue":3014000128.0},{"ticker":"DLO","allocation":0.45,"rule40":85.818433035292,"revenueGrowth":0.558,"earningsGrowth":0.286,"totalRevenue":1355896064.0},{"ticker":"OSCR","allocation":0.59,"rule40":74.92084315004882,"revenueGrowth":0.704,"earningsGrowth":null,"totalRevenue":15318633472.0},{"ticker":"AMD","allocation":1.29,"rule40":71.50539698176232,"revenueGrowth":0.501,"earningsGrowth":1.595,"totalRevenue":41305001984.0},{"ticker":"HIMS","allocation":0.4,"rule40":71.14803515130453,"revenueGrowth":0.382,"earningsGrowth":null,"totalRevenue":2578112000.0},{"ticker":"RBRK","allocation":0.49,"rule40":69.0129688703752,"revenueGrowth":0.379,"earningsGrowth":null,"totalRevenue":1542178048.0},{"ticker":"SNOW","allocation":0.67,"rule40":67.1080889006547,"revenueGrowth":0.351,"earningsGrowth":null,"totalRevenue":5434647040.0}]},"momentum":{"title":"MOMENTUM \u2014 trend leaders","cols":["ticker","allocation","momentum_score","liveChangePercent","currentPrice","fiftyDayAverage","twoHundredDayAverage","beta"],"rows":[{"ticker":"TXG","allocation":0.48,"momentum_score":72.80988890658821,"liveChangePercent":3.3293147,"currentPrice":68.59,"fiftyDayAverage":53.2048,"twoHundredDayAverage":29.94795,"beta":2.077},{"ticker":"OKTA","allocation":0.67,"momentum_score":36.78091697321021,"liveChangePercent":-2.6941738,"currentPrice":166.5,"fiftyDayAverage":148.8515,"twoHundredDayAverage":103.650375,"beta":0.789},{"ticker":"OSCR","allocation":0.59,"momentum_score":34.407760331318634,"liveChangePercent":0.583176,"currentPrice":32.77,"fiftyDayAverage":30.614,"twoHundredDayAverage":20.86225,"beta":2.369},{"ticker":"ZETA","allocation":0.42,"momentum_score":33.40113247108534,"liveChangePercent":-1.24345,"currentPrice":30.18,"fiftyDayAverage":25.7062,"twoHundredDayAverage":20.36045,"beta":1.436},{"ticker":"GTLB","allocation":0.2,"momentum_score":33.38438375137956,"liveChangePercent":-0.655386,"currentPrice":46.99,"fiftyDayAverage":38.6167,"twoHundredDayAverage":31.664,"beta":0.992},{"ticker":"BE","allocation":null,"momentum_score":30.31750705104611,"liveChangePercent":6.67724,"currentPrice":275.75,"fiftyDayAverage":225.7084,"twoHundredDayAverage":194.6709,"beta":3.811},{"ticker":"MU","allocation":4.21,"momentum_score":29.635794630376637,"liveChangePercent":-0.21996535,"currentPrice":975.26,"fiftyDayAverage":928.61,"twoHundredDayAverage":622.06726,"beta":2.222},{"ticker":"SNOW","allocation":0.67,"momentum_score":28.825641626755594,"liveChangePercent":-0.221403,"currentPrice":328.99,"fiftyDayAverage":303.5094,"twoHundredDayAverage":220.64455,"beta":1.328},{"ticker":"AMD","allocation":1.29,"momentum_score":27.933743611724168,"liveChangePercent":2.4880855,"currentPrice":516.13,"fiftyDayAverage":496.5488,"twoHundredDayAverage":346.91254,"beta":2.476},{"ticker":"MRVL","allocation":1.3,"momentum_score":27.43641643831297,"liveChangePercent":4.027141,"currentPrice":236.1,"fiftyDayAverage":216.8458,"twoHundredDayAverage":154.8161,"beta":2.253}]},"garp":{"title":"GARP \u2014 PEG<1.5, earnings growth>15%","cols":["ticker","allocation","pegRatio","earningsGrowth","revenueGrowth","trailingPE"],"rows":[{"ticker":"MU","allocation":4.21,"pegRatio":0.14,"earningsGrowth":13.685,"revenueGrowth":3.457,"trailingPE":22.024843},{"ticker":"LYFT","allocation":0.49,"pegRatio":0.15,"earningsGrowth":0.345,"revenueGrowth":0.161,"trailingPE":2.2299855},{"ticker":"JD","allocation":0.44,"pegRatio":0.49,"earningsGrowth":0.213,"revenueGrowth":-0.029,"trailingPE":18.039999},{"ticker":"PATH","allocation":0.39,"pegRatio":0.5,"earningsGrowth":22.808,"revenueGrowth":0.134,"trailingPE":20.522388},{"ticker":"AMD","allocation":1.29,"pegRatio":0.53,"earningsGrowth":1.595,"revenueGrowth":0.501,"trailingPE":131.66582},{"ticker":"SOFI","allocation":0.18,"pegRatio":0.62,"earningsGrowth":0.404,"revenueGrowth":0.426,"trailingPE":35.34694},{"ticker":"CRM","allocation":0.63,"pegRatio":0.83,"earningsGrowth":1.189,"revenueGrowth":0.108,"trailingPE":22.684982},{"ticker":"ORCL","allocation":0.81,"pegRatio":0.85,"earningsGrowth":0.545,"revenueGrowth":0.296,"trailingPE":23.517998},{"ticker":"INOD","allocation":0.44,"pegRatio":0.87,"earningsGrowth":1.05,"revenueGrowth":0.578,"trailingPE":41.248062},{"ticker":"FIVE","allocation":2.19,"pegRatio":0.98,"earningsGrowth":4.182,"revenueGrowth":0.229,"trailingPE":21.937222}]},"sentiment":{"title":"SENTIMENT \u2014 analyst upside (>=5 analysts)","cols":["ticker","allocation","upside","targetMeanPrice","currentPrice","recommendationMean","numberOfAnalystOpinions"],"rows":[{"ticker":"RZLV","allocation":0.19,"targetMeanPrice":9.3,"currentPrice":2.29,"recommendationMean":1.2,"numberOfAnalystOpinions":5.0,"upside":3.0611353711790397},{"ticker":"PONY","allocation":0.32,"targetMeanPrice":20.43125,"currentPrice":6.635,"recommendationMean":1.27778,"numberOfAnalystOpinions":16.0,"upside":2.0793142426526},{"ticker":"VKTX","allocation":0.33,"targetMeanPrice":92.39474,"currentPrice":31.98,"recommendationMean":1.45,"numberOfAnalystOpinions":19.0,"upside":1.8891413383364601},{"ticker":"SERV","allocation":0.44,"targetMeanPrice":12.625,"currentPrice":4.48,"recommendationMean":null,"numberOfAnalystOpinions":8.0,"upside":1.818080357142857},{"ticker":"ONDS","allocation":0.23,"targetMeanPrice":19.41667,"currentPrice":7.23,"recommendationMean":1.22222,"numberOfAnalystOpinions":9.0,"upside":1.6855698478561547},{"ticker":"GRRR","allocation":0.18,"targetMeanPrice":34.4,"currentPrice":13.59,"recommendationMean":1.0,"numberOfAnalystOpinions":5.0,"upside":1.5312729948491537},{"ticker":"NNE","allocation":0.73,"targetMeanPrice":40.83333,"currentPrice":16.41,"recommendationMean":1.57143,"numberOfAnalystOpinions":6.0,"upside":1.4883199268738572},{"ticker":"QUBT","allocation":0.88,"targetMeanPrice":18.66667,"currentPrice":7.99,"recommendationMean":1.66667,"numberOfAnalystOpinions":6.0,"upside":1.3362540675844805},{"ticker":"RXRX","allocation":0.12,"targetMeanPrice":7.21667,"currentPrice":3.2,"recommendationMean":null,"numberOfAnalystOpinions":6.0,"upside":1.2552093749999997},{"ticker":"EDIT","allocation":0.64,"targetMeanPrice":6.0,"currentPrice":2.7,"recommendationMean":2.07692,"numberOfAnalystOpinions":9.0,"upside":1.222222222222222}]},"risk":{"title":"RISK \u2014 distress watch (low Altman Z first; Z<1.8 = danger zone)","cols":["ticker","allocation","altman_z","debtToEquity","shortPercentOfFloat","beta","currentRatio"],"rows":[{"ticker":"BEAM","allocation":0.15,"altman_z":-91.35553204960506,"debtToEquity":23.173,"shortPercentOfFloat":0.38619998,"beta":2.226,"currentRatio":14.572},{"ticker":"OPTT","allocation":0.18,"altman_z":-12.329258643626302,"debtToEquity":99.928,"shortPercentOfFloat":0.1369,"beta":2.6,"currentRatio":0.602},{"ticker":"LCID","allocation":0.07,"altman_z":-6.662806654616206,"debtToEquity":197.84,"shortPercentOfFloat":0.45810002,"beta":0.811,"currentRatio":1.139},{"ticker":"SMR","allocation":0.24,"altman_z":-1.6946970018076377,"debtToEquity":0.332,"shortPercentOfFloat":0.176,"beta":2.309,"currentRatio":37.88},{"ticker":"DNA","allocation":0.37,"altman_z":-0.5655603043021287,"debtToEquity":96.152,"shortPercentOfFloat":0.128,"beta":1.768,"currentRatio":4.572},{"ticker":"BEPC","allocation":0.4,"altman_z":-0.18065566830159474,"debtToEquity":229.01,"shortPercentOfFloat":null,"beta":1.158,"currentRatio":0.398},{"ticker":"CRWV","allocation":1.63,"altman_z":0.20019478175369618,"debtToEquity":1027.329,"shortPercentOfFloat":0.1784,"beta":null,"currentRatio":0.455},{"ticker":"PACB","allocation":0.16,"altman_z":0.21076459113005835,"debtToEquity":null,"shortPercentOfFloat":0.1834,"beta":2.31,"currentRatio":4.922},{"ticker":"AES","allocation":0.34,"altman_z":0.6450910344513836,"debtToEquity":256.886,"shortPercentOfFloat":0.024600001,"beta":0.95,"currentRatio":0.746},{"ticker":"ARBE","allocation":0.12,"altman_z":0.6459365706563036,"debtToEquity":63.963,"shortPercentOfFloat":0.075,"beta":1.119,"currentRatio":2.3}]},"alpha_composite":{"title":"ALPHA COMPOSITE \u2014 top picks (0-100 ranks, equal-weighted factors)","cols":["ticker","allocation","value_composite","quality_score","momentum_score","r_value","r_quality","r_momentum","alpha"],"rows":[{"ticker":"CRM","allocation":0.63,"value_composite":13.105688695840419,"quality_score":30.935499999999998,"momentum_score":25.681272437893814,"r_value":91.73913043478261,"r_quality":90.41666666666667,"r_momentum":91.25,"alpha":91.13526570048309},{"ticker":"MU","allocation":4.21,"value_composite":5.233911920874451,"quality_score":63.61175075,"momentum_score":29.635794630376637,"r_value":72.60869565217392,"r_quality":98.75,"r_momentum":94.58333333333333,"alpha":88.64734299516908},{"ticker":"AAPL","allocation":2.52,"value_composite":4.822185929552756,"quality_score":64.2772535,"momentum_score":15.272692417727967,"r_value":70.0,"r_quality":99.58333333333333,"r_momentum":86.25,"alpha":85.27777777777777},{"ticker":"PFE","allocation":null,"value_composite":10.644250063668657,"quality_score":28.34775,"momentum_score":9.204701531959913,"r_value":85.65217391304348,"r_quality":87.08333333333333,"r_momentum":80.41666666666667,"alpha":84.3840579710145},{"ticker":"OSCR","allocation":0.59,"value_composite":10.814097177174348,"quality_score":16.7119998,"momentum_score":34.407760331318634,"r_value":86.52173913043478,"r_quality":67.91666666666667,"r_momentum":97.91666666666666,"alpha":84.11835748792271},{"ticker":"DLO","allocation":0.45,"value_composite":13.88392682479181,"quality_score":25.061500849999998,"momentum_score":8.043072586371085,"r_value":93.47826086956522,"r_quality":82.08333333333333,"r_momentum":76.25,"alpha":83.93719806763285},{"ticker":"BULL","allocation":0.19,"value_composite":6.6160521037920965,"quality_score":26.3577514875,"momentum_score":15.116469533886729,"r_value":77.82608695652173,"r_quality":84.58333333333333,"r_momentum":85.41666666666666,"alpha":82.6086956521739},{"ticker":"CSCO","allocation":0.8,"value_composite":5.49930211183192,"quality_score":31.885000124999998,"momentum_score":10.750047403918181,"r_value":73.47826086956522,"r_quality":92.08333333333333,"r_momentum":81.25,"alpha":82.27053140096619},{"ticker":"OKTA","allocation":0.67,"value_composite":4.56778325636052,"quality_score":24.329001075,"momentum_score":36.78091697321021,"r_value":69.1304347826087,"r_quality":78.75,"r_momentum":98.75,"alpha":82.21014492753623},{"ticker":"LYFT","allocation":0.49,"value_composite":64.72758674999518,"quality_score":48.0792499875,"momentum_score":-9.263680490239722,"r_value":98.69565217391305,"r_quality":97.91666666666666,"r_momentum":49.583333333333336,"alpha":82.06521739130434}]}};
+(function(){
+"use strict";
+const app = document.getElementById("app");
+const G = n => DATA.market[n] || [];
+const row = (g,n) => (DATA.market[g]||[]).find(r=>r.name===n) || {};
+const num = (v,d) => (v==null||isNaN(v)) ? "—" : Number(v).toLocaleString("en-US",{minimumFractionDigits:d==null?2:d,maximumFractionDigits:d==null?2:d});
+const pct = (v,d) => (v==null||isNaN(v)) ? "—" : (v>0?"+":"")+Number(v).toFixed(d==null?2:d)+"%";
+const sgn = v => (v==null||isNaN(v)) ? "" : (v>0.05?"up":v<-0.05?"down":"flat");
+const dlt = (v,d) => `<span class="${sgn(v)}">${pct(v,d)}</span>`;
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const q = (sel,root) => (root||document).querySelectorAll(sel);
+
+function regime(){
+  const spx=row("US INDICES","S&P 500"), vix=row("CONDITIONS","VIX");
+  if(spx.m1==null||vix.w1==null) return {t:"flat",l:"N/A"};
+  if(spx.m1>0&&vix.w1<0) return {t:"up",l:"RISK-ON"};
+  if(spx.m1<0&&vix.w1>0) return {t:"down",l:"RISK-OFF"};
+  return {t:"mixed",l:"MIXED"};
+}
+function breadth(){
+  const vals = Object.values(DATA.market).flat().map(r=>r.chg).filter(v=>v!=null&&!isNaN(v));
+  const up = vals.filter(v=>v>=0.2).length, dn = vals.filter(v=>v<=-0.2).length;
+  return {up,dn,flat:vals.length-up-dn,total:vals.length||1};
+}
+function portDay(){
+  const rows = (DATA.top_stox||[]).filter(r=>r.allocation!=null&&r.liveChangePercent!=null);
+  const w = rows.reduce((s,r)=>s+r.allocation,0);
+  return w ? rows.reduce((s,r)=>s+r.allocation*r.liveChangePercent,0)/w : null;
+}
+function watchRows(){
+  return (DATA.watch||[]).map(w=>{
+    const L = w.live||{};
+    const px = L.px!=null?L.px:w.currentPrice;
+    const tgt = w.targetMeanPrice;
+    return Object.assign({},w,{
+      px, up:(tgt&&px)?(tgt-px)/px*100:null,
+      chg:L.chg!=null?L.chg:w.liveChangePercent,
+      w1:L.w1!=null?L.w1:w.change1WPercent,
+      m1:L.m1!=null?L.m1:w.change1MPercent,
+      m3:L.m3!=null?L.m3:w.change3MPercent,
+      y1:L.y1!=null?L.y1:w.change1YPercent
+    });
+  });
+}
+function table(cols,rows,plain){
+  const th = cols.map(c=>`<th class="${c.num?"n":""}">${c.h}</th>`).join("");
+  const tb = rows.map(r=>"<tr>"+cols.map(c=>`<td class="${c.num?"n":""}">${c.f?c.f(r):r[c.k]}</td>`).join("")+"</tr>").join("");
+  return `<div class="${plain?"tblwrap rv in":"tblwrap rv"}"><table><thead><tr>${th}</tr></thead><tbody>${tb}</tbody></table></div>`;
+}
+function qcard(name,r){
+  const px = r.px;
+  const cell = (l,v) => `<div><i>${l}</i><b class="${sgn(v)}">${pct(v)}</b></div>`;
+  return `<div class="card tilt rv">
+    <div class="q-top"><span class="q-name">${esc(name)}</span><span class="q-pe">${r.pe!=null?"PE "+num(r.pe,1):""}</span></div>
+    <div class="q-price" data-count="${px==null?"":px}">${num(px)}</div>
+    <div class="q-grid">${cell("DAY",r.chg)}${cell("1W",r.w1)}${cell("1M",r.m1)}${cell("3M",r.m3)}${cell("1Y",r.y1)}</div>
+  </div>`;
+}
+function tapeHtml(){
+  const items = Object.entries(DATA.market).flatMap(([g,rs])=>rs.map(r=>
+    `<span class="tape-i"><b>${esc(r.name)}</b><span>${num(r.px)}</span><span class="${sgn(r.chg)}">${pct(r.chg)}</span></span>`));
+  const half = items.join("");
+  return `<div class="tape rv"><div class="tape-track"><span>${half}</span><span>${half}</span></div></div>`;
+}
+function heroQuote(label,r,d){
+  return `<div class="hq">
+    <div class="hq-l">${label}</div>
+    <div class="hq-p" data-count="${r.px==null?"":r.px}" data-d="${d==null?2:d}">${num(r.px,d)}</div>
+    <div class="hq-c ${sgn(r.chg)}">${pct(r.chg)} <span class="hq-m">DAY · 1M ${pct(r.m1)}</span></div>
+  </div>`;
+}
+function movers(n){
+  const rows = (DATA.top_stox||[]).filter(r=>r.liveChangePercent!=null)
+    .sort((a,b)=>Math.abs(b.liveChangePercent)-Math.abs(a.liveChangePercent)).slice(0,n);
+  return rows.map(r=>`<div class="card tilt rv">
+    <div class="q-top"><span class="q-name">${esc(r.ticker)}</span><span class="q-pe">alloc ${num(r.allocation)}%</span></div>
+    <div class="q-price sm" data-count="${r.currentPrice==null?"":r.currentPrice}">${num(r.currentPrice)}</div>
+    <div class="big ${sgn(r.liveChangePercent)}">${pct(r.liveChangePercent)}</div>
+    <div class="sub">1W ${pct(r.change1WPercent)} · 1M ${pct(r.change1MPercent)} · 1Y ${pct(r.change1YPercent)}</div>
+  </div>`).join("");
+}
+
+function newsBlock(){
+  const items = (NEWS||[]).slice(0,5);
+  if(!items.length) return `<div class="empty rv">no news from SPY / QQQ right now</div>`;
+  return `<div class="tblwrap rv">` + items.map(n=>{
+    const meta = [
+      n.provider && n.provider!=="N/A" ? n.provider : null,
+      n.pubDate && n.pubDate!=="N/A" ? String(n.pubDate).slice(0,16).replace("T"," ")+" UTC" : null
+    ].filter(Boolean).join(" · ");
+    return `<div class="news-i">`+
+      `<span class="news-src">${esc(n.src||"")}</span>`+
+      `<span class="news-t">${esc(n.title||"")}</span>`+
+      `<span class="news-m">${esc(meta)}</span></div>`;
+  }).join("") + `</div>`;
+}
+function viewHome(){
+  const spx=row("US INDICES","S&P 500"), ndx=row("US INDICES","Nasdaq"),
+        t10=row("CONDITIONS","US 10Y"), vix=row("CONDITIONS","VIX"), dxy=row("CONDITIONS","Dollar");
+  const rg=regime(), br=breadth(), pd=portDay();
+  const total=br.total;
+  const heat = G("S&P SECTORS").map(r=>
+    `<div class="chip ${sgn(r.chg)}"><span>${esc(r.name)}</span><b>${pct(r.chg)}</b></div>`).join("");
+  return `
+  <section class="hero rv">
+    <div class="eyebrow">MARKET OUTLOOK · SNAPSHOT <span id="hero-asof"></span></div>
+    <div class="hero-quotes">
+      ${heroQuote("S&amp;P 500",spx)}
+      ${heroQuote("NASDAQ",ndx)}
+      ${heroQuote("US 10Y",t10,3)}
+      ${heroQuote("DXY",dxy)}
+    </div>
+    <div class="hero-foot">
+      <span class="badge ${rg.t}"><span class="pulse"></span>${rg.l}</span>
+      <span class="badge ${rg.t==="up"?"up":rg.t==="down"?"down":"mixed"}">SPX 1M ${pct(spx.m1)}</span>
+      <span class="badge ${sgn(vix.w1)==="up"?"down":sgn(vix.w1)==="down"?"up":"flat"}">VIX 1W ${pct(vix.w1)}</span>
+      <span class="meta">breadth ${br.up}/${br.dn}/${br.flat} up/dn/flat · portfolio day ${pct(pd)}</span>
+    </div>
+  </section>
+  ${tapeHtml()}
+  <div class="grid g4">
+    <div class="card rv">
+      <div class="q-label">REGIME</div>
+      <span class="badge ${rg.t}" style="font-size:13px;padding:7px 14px"><span class="pulse"></span>${rg.l}</span>
+      <div class="sub">SPX 1M ${pct(spx.m1)} · VIX 1W ${pct(vix.w1)}</div>
+    </div>
+    <div class="card rv">
+      <div class="q-label">BREADTH (DAY)</div>
+      <div class="br-nums"><b class="up">${br.up} UP</b><b class="flat">${br.flat} FLAT</b><b class="down">${br.dn} DN</b></div>
+      <div class="bar3">
+        <i class="seg up" data-w="${br.up/total*100}"></i>
+        <i class="seg flat" data-w="${br.flat/total*100}"></i>
+        <i class="seg dn" data-w="${br.dn/total*100}"></i>
+      </div>
+      <div class="sub">${Object.values(DATA.market).flat().length} instruments · all groups</div>
+    </div>
+    <div class="card rv">
+      <div class="q-label">VIX</div>
+      <div class="q-price" data-count="${vix.px==null?"":vix.px}">${num(vix.px)}</div>
+      <div class="q-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div><i>DAY</i><b class="${sgn(vix.chg)}">${pct(vix.chg)}</b></div>
+        <div><i>1W</i><b class="${sgn(vix.w1)}">${pct(vix.w1)}</b></div>
+        <div><i>1M</i><b class="${sgn(vix.m1)}">${pct(vix.m1)}</b></div>
+      </div>
+    </div>
+    <div class="card rv">
+      <div class="q-label">PORTFOLIO · TOP 20 (ALLOC-WTD DAY)</div>
+      <div class="q-price ${sgn(pd)}" data-count="${pd==null?"":pd}" data-fmt="pct">${pct(pd)}</div>
+      <div class="sub">${(DATA.top_stox||[]).length} names · ${num((DATA.top_stox||[]).reduce((s,r)=>s+(r.allocation||0),0),1)}% of book shown</div>
+    </div>
+  </div>
+  <div class="sec rv"><h2>NEWS</h2><span class="hint">SPY + QQQ · latest ${Math.min(5,(NEWS||[]).length)}</span></div>
+  ${newsBlock()}
+  <div class="sec rv"><h2>TOP MOVERS TODAY</h2><span class="hint">by |day %| · from top-20 stox</span></div>
+  <div class="grid g3">${movers(6)}</div>
+  <div class="sec rv"><h2>SECTOR HEAT</h2><span class="hint">S&amp;P sectors · day</span></div>
+  <div class="chips">${heat}</div>`;
+}
+function viewMarkets(){
+  const cols=[
+    {h:"SECTOR",f:r=>`<b>${esc(r.name)}</b>`},
+    {h:"DAY",num:1,f:r=>dlt(r.chg)},{h:"1W",num:1,f:r=>dlt(r.w1)},{h:"1M",num:1,f:r=>dlt(r.m1)},
+    {h:"3M",num:1,f:r=>dlt(r.m3)},{h:"1Y",num:1,f:r=>dlt(r.y1)},
+    {h:"PE",num:1,f:r=>r.pe==null?"—":num(r.pe,1)}
+  ];
+  return `
+  <div class="sec rv"><h2>US INDICES</h2></div>
+  <div class="grid g4">${G("US INDICES").map(r=>qcard(r.name,r)).join("")}</div>
+  <div class="sec rv"><h2>S&amp;P SECTORS</h2><span class="hint">day / 1W / 1M / 3M / 1Y</span></div>
+  ${table(cols,G("S&P SECTORS"))}`;
+}
+function viewMacro(){
+  const blk=(t,rs)=>`<div class="sec rv"><h2>${t}</h2></div><div class="grid g4">${rs.map(r=>qcard(r.name,r)).join("")}</div>`;
+  return blk("WORLD",G("WORLD")) + blk("CONDITIONS",G("CONDITIONS")) + blk("HARD ASSETS / CRYPTO",G("HARD ASSETS / CRYPTO"));
+}
+function viewWatch(){
+  const wcols=[
+    {h:"TICKER",f:r=>`<b>${esc(r.ticker)}</b>`},
+    {h:"PRICE",num:1,f:r=>num(r.px)},
+    {h:"DAY",num:1,f:r=>dlt(r.chg)},{h:"1W",num:1,f:r=>dlt(r.w1)},{h:"1M",num:1,f:r=>dlt(r.m1)},{h:"1Y",num:1,f:r=>dlt(r.y1)},
+    {h:"TARGET",num:1,f:r=>num(r.targetMeanPrice)},
+    {h:"UPSIDE",num:1,f:r=>`<span class="${sgn(r.up)}">${pct(r.up,1)}</span>`},
+    {h:"N",num:1,f:r=>r.numberOfAnalystOpinions==null?"—":String(r.numberOfAnalystOpinions)}
+  ];
+  const tcols=[
+    {h:"TICKER",f:r=>`<b>${esc(r.ticker)}</b>`},
+    {h:"ALLOC",num:1,f:r=>num(r.allocation)+"%"},
+    {h:"PRICE",num:1,f:r=>num(r.currentPrice)},
+    {h:"DAY",num:1,f:r=>dlt(r.liveChangePercent)},{h:"1W",num:1,f:r=>dlt(r.change1WPercent)},
+    {h:"1M",num:1,f:r=>dlt(r.change1MPercent)},{h:"3M",num:1,f:r=>dlt(r.change3MPercent)},
+    {h:"1Y",num:1,f:r=>dlt(r.change1YPercent)}
+  ];
+  const earn = DATA.earnings_week||[];
+  const ecols=[{h:"TICKER",f:r=>`<b>${esc(r.ticker)}</b>`},{h:"DATE",num:1,f:r=>esc(r.date)},{h:"IN",num:1,f:r=>r.in_days+"d"}];
+  const eblock = earn.length ? table(ecols,earn)
+    : `<div class="empty rv">no earnings in the next 7 days</div>`;
+  return `
+  <div class="sec rv"><h2>WATCHLIST</h2><span class="hint">live quotes from db + target upside</span></div>
+  ${table(wcols,watchRows())}
+  <div class="sec rv"><h2>EARNINGS · NEXT 7 DAYS</h2></div>
+  ${eblock}
+  <div class="sec rv"><h2>TOP 20 STOX</h2><span class="hint">by allocation</span></div>
+  ${table(tcols,DATA.top_stox||[])}`;
+}
+function viewThemes(){
+  const rows = G("THEMES").slice().sort((a,b)=>(b.m1==null?-1e9:b.m1)-(a.m1==null?-1e9:a.m1));
+  const maxAbs = Math.max.apply(null,rows.map(r=>Math.abs(r.m1||0)).concat([1]));
+  const cards = rows.map((r,i)=>{
+    const w = Math.round(Math.abs(r.m1||0)/maxAbs*100);
+    return `<div class="card th tilt rv">
+      <div class="th-rank">#${i+1}</div>
+      <div class="q-name">${esc(r.name)}</div>
+      <div class="th-px" data-count="${r.px==null?"":r.px}">${num(r.px)}</div>
+      <div class="th-d"><span class="${sgn(r.chg)}">${pct(r.chg)}</span><span style="color:var(--dim)">DAY</span>
+        <span class="${sgn(r.m1)}">${pct(r.m1)}</span><span style="color:var(--dim)">1M</span></div>
+      <div class="mbar"><i class="${sgn(r.m1)==="down"?"down":"up"}" data-w="${w}"></i></div>
+    </div>`;
+  }).join("");
+  return `<div class="sec rv"><h2>THEMES</h2><span class="hint">ranked by 1M</span></div><div class="grid g4">${cards}</div>`;
+}
+
+const SC_ORDER=["value","quality","growth_rule40","momentum","garp","sentiment","risk","alpha_composite"];
+const SC_LABEL={value:"VALUE",quality:"QUALITY",growth_rule40:"GROWTH",momentum:"MOMENTUM",
+  garp:"GARP",sentiment:"SENTIMENT",risk:"RISK",alpha_composite:"ALPHA"};
+let scCur="value";
+const COL_LABEL={ticker:"TICKER",allocation:"ALLOC",value_composite:"VAL",trailingPE:"P/E",
+  forwardPE:"FWD P/E",pegRatio:"PEG",priceToBook:"P/B",enterpriseToEbitda:"EV/EBITDA",
+  quality_score:"QUAL",piotroski_f:"PIOT F",returnOnEquity:"ROE",operatingMargins:"OP MGN",
+  debtToEquity:"D/E",rule40:"RULE40",revenueGrowth:"REV GR",earningsGrowth:"EPS GR",
+  totalRevenue:"REV",momentum_score:"MOM",liveChangePercent:"DAY",currentPrice:"PRICE",
+  fiftyDayAverage:"50DMA",twoHundredDayAverage:"200DMA",beta:"BETA",upside:"UPSIDE",
+  targetMeanPrice:"TARGET",recommendationMean:"REC",numberOfAnalystOpinions:"N",
+  altman_z:"ALT Z",shortPercentOfFloat:"SHORT %F",currentRatio:"CURRENT",
+  alpha:"ALPHA",r_value:"R VAL",r_quality:"R QUAL",r_momentum:"R MOM"};
+const SC_PCT_P=["liveChangePercent","upside","change1WPercent","change1MPercent","change3MPercent","change1YPercent"];
+const SC_PCT_F=["revenueGrowth","earningsGrowth","returnOnEquity","operatingMargins","shortPercentOfFloat","profitMargins","payoutRatio"];
+const SC_MONEY=["currentPrice","targetMeanPrice","fiftyDayAverage","twoHundredDayAverage"];
+const SC_INT=["numberOfAnalystOpinions","piotroski_f"];
+const SC_0DP=["r_value","r_quality","r_momentum"];
+const SC_1DP=["alpha","rule40","trailingPE","forwardPE","pegRatio","priceToBook",
+  "enterpriseToEbitda","debtToEquity","currentRatio","recommendationMean","value_composite",
+  "quality_score","momentum_score","beta"];
+function bigMoney(v){
+  const a=Math.abs(v);
+  if(a>=1e12) return "$"+num(v/1e12,2)+"T";
+  if(a>=1e9) return "$"+num(v/1e9,2)+"B";
+  if(a>=1e6) return "$"+num(v/1e6,1)+"M";
+  return num(v,0);
+}
+function fmtCell(c,v){
+  if(v==null) return "—";
+  if(c==="ticker") return `<b>${esc(v)}</b>`;
+  if(c==="allocation") return num(v,2)+"%";
+  if(SC_PCT_P.includes(c)) return `<span class="${sgn(v)}">${pct(v,1)}</span>`;
+  if(SC_PCT_F.includes(c)) return `<span class="${sgn(v)}">${pct(v*100,1)}</span>`;
+  if(c==="totalRevenue") return bigMoney(v);
+  if(SC_MONEY.includes(c)) return num(v,2);
+  if(c==="altman_z") return `<span class="${sgn(v)}">${num(v,1)}</span>`;
+  if(SC_INT.includes(c)) return String(Math.round(v));
+  if(SC_0DP.includes(c)) return num(v,0);
+  if(SC_1DP.includes(c)) return num(v,1);
+  return num(v,2);
+}
+function scTable(){
+  const sc=(SCREENERS||{})[scCur];
+  if(!sc||sc.error) return `<div class="empty">${
+    esc(sc&&sc.error?("screener error: "+sc.error):"no screener data — run dashboard/build_preview.py")}</div>`;
+  const cols=sc.cols.map((c,i)=>({h:COL_LABEL[c]||String(c).toUpperCase(),num:i!==0,f:r=>fmtCell(c,r[c])}));
+  return `<div class="sec rv in"><h2>${esc(sc.title)}</h2><span class="hint">${sc.rows.length} rows</span></div>`+
+    table(cols,sc.rows,true);
+}
+function viewScreeners(){
+  const chips = SC_ORDER.map(n=>`<button class="chip2${n===scCur?" on":""}" data-sc="${n}">${SC_LABEL[n]}</button>`).join("");
+  return `
+  <div class="sec rv"><h2>SCREENERS</h2><span class="hint">portfolio.db · stox+watch</span></div>
+  <div class="chips2 rv" id="sc-chips">${chips}</div>
+  <div id="sc-body">${scTable()}</div>`;
+}
+
+const VIEWS = {home:viewHome,markets:viewMarkets,macro:viewMacro,watch:viewWatch,themes:viewThemes,screeners:viewScreeners};
+let io = null;
+function countUp(node){
+  const target = parseFloat(node.dataset.count);
+  if(isNaN(target)) return;
+  const isPct = node.dataset.fmt==="pct";
+  const d = node.dataset.d!=null ? +node.dataset.d : 2;
+  const setFinal = ()=>{ node.textContent = isPct ? pct(target) : num(target,d); };
+  if(window.matchMedia("(prefers-reduced-motion: reduce)").matches){ setFinal(); return; }
+  const t0 = performance.now(), dur = 950;
+  function step(t){
+    const p = Math.min(1,(t-t0)/dur), e = 1-Math.pow(1-p,3), v = target*e;
+    node.textContent = isPct ? pct(v) : num(v,d);
+    if(p<1) requestAnimationFrame(step);
+    else setFinal();
+  }
+  requestAnimationFrame(step);
+}
+function effects(){
+  const rg = regime();
+  const acc = rg.t==="up" ? "#5a9c7a" : rg.t==="down" ? "#bd6a6a" : "#e0a63c";
+  document.documentElement.style.setProperty("--accent",acc);
+  document.getElementById("asof").textContent = DATA.asof||"";
+  document.getElementById("f-asof").textContent = "snapshot "+(DATA.asof||"");
+  const ha = document.getElementById("hero-asof");
+  if(ha) ha.textContent = DATA.asof||"";
+
+  if(io) io.disconnect();
+  let i = 0;
+  io = new IntersectionObserver(es=>{
+    es.forEach(e=>{
+      if(e.isIntersecting){
+        e.target.style.transitionDelay = Math.min(i++,10)*55+"ms";
+        e.target.classList.add("in");
+        io.unobserve(e.target);
+      }
+    });
+  },{threshold:.12,rootMargin:"0px 0px -6% 0px"});
+  q(".rv").forEach(n=>io.observe(n));
+
+  const chips = q("#sc-chips .chip2");
+  if(chips.length) chips.forEach(b=>b.addEventListener("click",()=>{
+    scCur = b.dataset.sc;
+    chips.forEach(x=>x.classList.toggle("on",x.dataset.sc===scCur));
+    document.getElementById("sc-body").innerHTML = scTable();
+  }));
+
+  q("[data-count]").forEach(n=>{
+    if(n.closest(".rv")===null || n.closest(".rv").classList.contains("in")) countUp(n);
+    else{
+      const card = n.closest(".rv");
+      const obs = new IntersectionObserver(es=>{
+        es.forEach(e=>{ if(e.isIntersecting){ countUp(n); obs.disconnect(); } });
+      },{threshold:.3});
+      obs.observe(card);
+    }
+  });
+  requestAnimationFrame(()=>q("[data-w]").forEach(n=>{ n.style.width = n.dataset.w+"%"; }));
+
+  if(window.matchMedia("(pointer:fine)").matches){
+    q(".card.tilt").forEach(c=>{
+      c.addEventListener("pointermove",e=>{
+        if(!c.classList.contains("in")) return;
+        const r = c.getBoundingClientRect();
+        const x = (e.clientX-r.left)/r.width-.5, y = (e.clientY-r.top)/r.height-.5;
+        c.style.transform = `perspective(700px) rotateX(${(-y*4).toFixed(2)}deg) rotateY(${(x*4).toFixed(2)}deg)`;
+      });
+      c.addEventListener("pointerleave",()=>{ c.style.transform=""; });
+    });
+  }
+}
+function render(){
+  const key = (location.hash.replace(/^#\/?/,"") || "home");
+  const view = VIEWS[key] || VIEWS.home;
+  app.innerHTML = view();
+  q("#tabs a").forEach(a=>a.classList.toggle("on",a.dataset.v===key));
+  document.title = "STOX // "+key.toUpperCase();
+  window.scrollTo(0,0);
+  document.getElementById("pbar").style.width = "0";
+  effects();
+}
+window.addEventListener("scroll",()=>{
+  const h = document.documentElement.scrollHeight - window.innerHeight;
+  const p = h>0 ? window.scrollY/h*100 : 0;
+  document.getElementById("pbar").style.width = p+"%";
+},{passive:true});
+window.addEventListener("hashchange",render);
+if(!location.hash) location.hash = "#/home";
+render();
+})();
+</script>
+</body>
+</html>
